@@ -1,4 +1,3 @@
-# Local .terraform directory
 **/.terraform/*
 
 # .tfstate files
@@ -9,3 +8,9 @@
 crash.log
 
 .terraform/
+
+# Ansible sensitive files
+vars.yaml
+**/vars/main.yaml
+*.vault
+vault_pass.txt

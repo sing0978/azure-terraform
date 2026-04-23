@@ -1,0 +1,71 @@
+services:
+  sql-server:
+    image: mysql:8.0.33
+    environment:
+      MYSQL_ROOT_PASSWORD: {{ mysql_root_password }}
+      MYSQL_DATABASE: {{ mysql_database }}             
+      MYSQL_USER: {{ mysql_user }}                     
+      MYSQL_PASSWORD: {{ mysql_password }}  
+    volumes:
+     - ./mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: "10s"
+      retries: 5
+    restart: unless-stopped
+
+  guac-init:
+    image: guacamole/guacamole
+    command: >
+      /bin/sh -c "
+        /opt/guacamole/bin/initdb.sh --mysql > /init/initdb.sql
+      "
+    volumes:
+      - ./init:/init
+    depends_on:
+      sql-server:
+        condition: service_healthy
+
+  guac-db-import:
+    image: mysql:8.0.33
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+    command: >
+      /bin/sh -c "
+        if ! mysql -h sql-server -u root -prootpass -e 'USE guac; SHOW TABLES;' | grep -q guacamole_user; then
+          mysql -h sql-server -u root -prootpass guac < /init/initdb.sql;
+        else
+          echo 'Schema already exists, skipping.';
+        fi
+      "
+    volumes:
+      - ./init:/init
+    depends_on:
+      guac-init:
+        condition: service_completed_successfully
+      sql-server:
+        condition: service_healthy
+    restart: on-failure
+  azure-guacd:
+    image: guacamole/guacd
+    ports:
+      -  4822:4822
+    restart: unless-stopped
+  
+  azure-guacamole:
+    image: guacamole/guacamole
+    environment:
+      GUACD_HOSTNAME: azure-guacd      
+      GUACD_PORT: 4822
+      MYSQL_HOSTNAME: sql-server
+      MYSQL_DATABASE: {{ mysql_database }}
+      MYSQL_USER: {{ mysql_user }}
+      MYSQL_PASSWORD: {{ mysql_password }}
+    ports:
+      - 8080:8080
+    depends_on:
+      sql-server:
+        condition: service_healthy
+      azure-guacd:
+        condition: service_started
+    restart: unless-stopped      

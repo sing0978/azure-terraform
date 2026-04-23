@@ -1,0 +1,106 @@
+---
+
+- name: Debug vars
+  ansible.builtin.debug:
+    msg: "mysql_database={{ mysql_database }}"
+
+
+- name: Remove conflicting docker packages
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-doc
+      - docker-compose
+      - podman-docker
+      - containerd          # ← conflicts with containerd.io
+      - runc
+    state: absent           # ← removes them
+    autoremove: yes
+
+- name: Install required dependencies
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: yes
+
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Add Docker GPG key
+  ansible.builtin.shell:
+    cmd: |
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+        gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    creates: /etc/apt/keyrings/docker.gpg # skips if file already exists
+
+- name: Add Docker repository
+  ansible.builtin.shell:
+    cmd: |
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+      https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | \
+      tee /etc/apt/sources.list.d/docker.list
+    creates: /etc/apt/sources.list.d/docker.list
+
+- name: Configure guacd
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: yes
+
+- name: Unmask docker service
+  ansible.builtin.systemd:
+    name: docker
+    masked: no
+
+- name: Checking if docker is running
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+    daemon_reload: yes
+
+- name: Create directory
+  ansible.builtin.file:
+    path: /opt/guacamole
+    state: directory
+    mode: '0755'
+
+- name: Create init directory
+  ansible.builtin.file:
+    path: /opt/guacamole/init
+    state: directory
+    mode: '0777'
+
+
+- name: Remove existing docker compose file
+  ansible.builtin.file:
+    path: /opt/guacamole/docker-compose.yaml
+    state: absent   
+
+- name: Copy docker compose file
+  ansible.builtin.template:
+    src: docker-compose.yaml.j2
+    dest: /opt/guacamole/docker-compose.yaml
+
+- name: Initialize guacamole mysql
+  community.docker.docker_compose_v2:
+    project_src: /opt/guacamole
+    services:
+      - guac-init
+      - guac-db-import
+    wait: false
+
+- name: Start docker compose
+  community.docker.docker_compose_v2:
+    project_src: /opt/guacamole
+    state: present

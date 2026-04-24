@@ -11,7 +11,7 @@ resource "azurerm_network_security_group" "guacnsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "3389"
-    source_address_prefix      = "174.112.119.102/32"
+    source_address_prefix      = var.my_ip
     destination_address_prefix = "*"
   }
 
@@ -23,7 +23,7 @@ resource "azurerm_network_security_group" "guacnsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
-    source_address_prefix      = "174.112.119.102/32"
+    source_address_prefix      = var.my_ip
     destination_address_prefix = "*"
   }
    security_rule {
@@ -34,7 +34,7 @@ resource "azurerm_network_security_group" "guacnsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "8080"
-    source_address_prefix      = "174.112.119.102/32"
+    source_address_prefix      = var.my_ip
     destination_address_prefix = "*"
   }
   tags = {

@@ -1,22 +1,4 @@
 ---
-
-- name: Debug vars
-  ansible.builtin.debug:
-    msg: "mysql_database={{ mysql_database }}"
-
-
-- name: Remove conflicting docker packages
-  ansible.builtin.apt:
-    name:
-      - docker.io
-      - docker-doc
-      - docker-compose
-      - podman-docker
-      - containerd          # ← conflicts with containerd.io
-      - runc
-    state: absent           # ← removes them
-    autoremove: yes
-
 - name: Install required dependencies
   ansible.builtin.apt:
     name:
@@ -37,7 +19,7 @@
     cmd: |
       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
         gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    creates: /etc/apt/keyrings/docker.gpg # skips if file already exists
+    creates: /etc/apt/keyrings/docker.gpg 
 
 - name: Add Docker repository
   ansible.builtin.shell:
